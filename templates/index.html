@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f8ff">
+  <title>EduGenie | Your learning companion</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="/" aria-label="EduGenie home"><span class="brand-mark">✦</span> EduGenie</a><span class="top-note">Your personal learning companion</span></header>
+  <main class="layout">
+    <section class="intro">
+      <div class="eyebrow">LEARN WITH CLARITY</div>
+      <h1>Big questions.<br><span>Clear answers.</span></h1>
+      <p>Explore a topic, check your understanding, or build a learning plan. Start wherever you are.</p>
+      <div class="feature-pills"><span>✦ Ask anything</span><span>◎ Learn at your pace</span><span>↗ Keep growing</span></div>
+    </section>
+    <section class="workspace" aria-label="EduGenie assistant">
+      <div class="card-heading"><div><div class="eyebrow">STUDY SPACE</div><h2>What would you like to do?</h2></div><div class="sparkle">✦</div></div>
+      <form id="assistant-form">
+        <label for="task">Choose a learning tool</label>
+        <select id="task" name="task">
+          <option value="qa">Ask a question</option>
+          <option value="explain">Explain a concept</option>
+          <option value="quiz">Generate a quiz</option>
+          <option value="summarize">Summarize a passage</option>
+          <option value="learn">Create a learning path</option>
+        </select>
+        <div id="level-wrap" class="optional-field"><label for="level">Your current level</label><select id="level"><option>beginner</option><option>intermediate</option><option>advanced</option></select></div>
+        <div id="weeks-wrap" class="optional-field"><label for="weeks">Plan length</label><select id="weeks"><option value="4">4 weeks</option><option value="2">2 weeks</option><option value="6">6 weeks</option><option value="8">8 weeks</option></select></div>
+        <label id="input-label" for="content">Your question</label>
+        <textarea id="content" name="content" rows="6" maxlength="20000" placeholder="What is the difference between weather and climate?" required></textarea>
+        <div class="form-footer"><span id="hint">Ask clearly - EduGenie will take it from there.</span><button id="submit" type="submit"><span>✨</span> <span id="button-label">Get an answer</span></button></div>
+      </form>
+      <div id="status" class="status" role="status" aria-live="polite" hidden></div>
+      <section id="result" class="result" aria-live="polite" hidden></section>
+    </section>
+    <footer>Made for curious minds <span>·</span> Keep asking, keep learning</footer>
+  </main>
+  <script>
+    const form = document.querySelector('#assistant-form');
+    const task = document.querySelector('#task');
+    const content = document.querySelector('#content');
+    const levelWrap = document.querySelector('#level-wrap');
+    const weeksWrap = document.querySelector('#weeks-wrap');
+    const labels = {
+      qa: ['Your question', 'What is the difference between weather and climate?', 'Get an answer', 'Ask clearly - EduGenie will take it from there.'],
+      explain: ['Topic to explain', 'For example: How does photosynthesis work?', 'Explain it simply', 'Choose a topic and the level of explanation you need.'],
+      quiz: ['Passage or study notes', 'Paste the material you want to practice...', 'Generate my quiz', 'Three questions, four options each.'],
+      summarize: ['Passage to summarize', 'Paste a lesson, article, or your notes...', 'Create summary', 'Keep the key ideas; skip the repetition.'],
+      learn: ['What do you want to learn?', 'For example: SQL, from the basics to query optimization', 'Build my learning path', 'Get a step-by-step plan with practice ideas.']
+    };
+    task.addEventListener('change', () => {
+      const key = task.value;
+      document.querySelector('#input-label').textContent = labels[key][0];
+      content.placeholder = labels[key][1];
+      document.querySelector('#button-label').textContent = labels[key][2];
+      document.querySelector('#hint').textContent = labels[key][3];
+      levelWrap.hidden = !['explain', 'learn'].includes(key);
+      weeksWrap.hidden = key !== 'learn';
+    });
+    function renderText(title, text) {
+      const section = document.createElement('div');
+      const heading = document.createElement('h3'); heading.textContent = title;
+      const body = document.createElement('p'); body.className = 'answer-text'; body.textContent = text;
+      section.append(heading, body); return section;
+    }
+    function renderQuiz(questions) {
+      const wrap = document.createElement('div');
+      const heading = document.createElement('h3'); heading.textContent = 'Your practice quiz'; wrap.append(heading);
+      questions.forEach((q, i) => {
+        const card = document.createElement('fieldset'); card.className = 'question-card';
+        const legend = document.createElement('legend'); legend.textContent = `${i + 1}. ${q.question}`; card.append(legend);
+        const feedback = document.createElement('p'); feedback.className = 'quiz-feedback'; feedback.hidden = true;
+        q.options.forEach(option => {
+          const label = document.createElement('label'); label.className = 'quiz-option';
+          const input = document.createElement('input'); input.type = 'radio'; input.name = `question-${i}`; input.value = option;
+          input.addEventListener('change', () => {
+            feedback.hidden = false;
+            const correct = option === q.answer;
+            feedback.textContent = correct ? 'Correct - nicely done!' : `Not quite. The correct answer is: ${q.answer}`;
+            feedback.className = `quiz-feedback ${correct ? 'correct' : 'incorrect'}`;
+          });
+          const text = document.createElement('span'); text.textContent = option;
+          label.append(input, text); card.append(label);
+        });
+        card.append(feedback); wrap.append(card);
+      });
+      return wrap;
+    }
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      const key = task.value; const text = content.value.trim();
+      if (!text) return;
+      const status = document.querySelector('#status'); const result = document.querySelector('#result');
+      const button = document.querySelector('#submit'); button.disabled = true;
+      status.hidden = false; status.textContent = 'Thinking through it...'; status.className = 'status';
+      result.hidden = true; result.replaceChildren();
+      let endpoint, body;
+      if (key === 'qa') { endpoint = '/qa'; body = {question: text}; }
+      if (key === 'explain') { endpoint = '/explain'; body = {topic: text, level: document.querySelector('#level').value}; }
+      if (key === 'quiz') { endpoint = '/quiz'; body = {text}; }
+      if (key === 'summarize') { endpoint = '/summarize'; body = {text}; }
+      if (key === 'learn') { endpoint = '/learn/recommendations'; body = {topic: text, level: document.querySelector('#level').value, weeks: Number(document.querySelector('#weeks').value)}; }
+      try {
+        const response = await fetch(endpoint, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || 'Something went wrong. Please try again.');
+        status.hidden = true;
+        const title = {qa:'Here’s your answer', explain:'A simpler explanation', summarize:'Your summary', learn:'Your learning path'}[key];
+        result.append(key === 'quiz' ? renderQuiz(data.questions) : renderText(title, data.answer || data.explanation || data.summary || data.learning_path));
+        result.hidden = false;
+      } catch (error) {
+        status.textContent = error.message; status.className = 'status error';
+      } finally { button.disabled = false; }
+    });
+    task.dispatchEvent(new Event('change'));
+  </script>
+</body>
+</html>
